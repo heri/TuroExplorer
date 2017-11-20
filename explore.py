@@ -11,11 +11,16 @@ sess = dryscrape.Session(base_url = site)
 sess.set_attribute('auto_load_images', False)
 
 sess.visit('/rentals/suvs/nj/jersey-city/land-rover-range-rover-sport/84266')
-prices = sess.at_xpath("//span[@class='reservationBoxVehiclePrice-amount']")
+name = sess.xpath("//p[@class='vehicleLabel-makeModel']//text()")
+if len(name) > 0:
+    print name[0]
+price = sess.xpath("//span[@class='reservationBoxVehiclePrice-amount']//text()")
+if len(price) > 0:
+    print price[0]
 
-# view all car prices
-for element in prices:
-    print(element)
+trips = sess.xpath("//div[@class='starRating-ratingLabel']//text()")
+if len(trips) > 0:
+    print trips[0]
 
 sess.render('land-rover.png')
 print('Screenshot written to land-rover')
