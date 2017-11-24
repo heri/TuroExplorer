@@ -13,7 +13,8 @@ Ubuntu
 DONE
 * OK bug : gets node instead of text content
 * OK save to postgres
+* OK get multiple cars
+* OK save multiple to database
 
 TODOS
-* get multiple cars
-* multiple geographical regions
+* get all cars from db, get new information with date

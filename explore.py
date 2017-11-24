@@ -8,6 +8,7 @@ import re
 import datetime
 import sqlite3 as lite
 from sqlite3 import Error
+import time
 
 if 'linux' in sys.platform:
     # start xvfb in case no X is running. Make sure xvfb 
@@ -33,44 +34,57 @@ def setup_model(db_name):
     with conn:
         cur = conn.cursor()
         cur.execute("DROP TABLE IF EXISTS Cars")
-        cur.execute("CREATE TABLE Cars(Id INT, Name TEXT, Amenities TEXT, Location TEXT, ReservationPrice INT, TotalTrips INT, Revenues INT)")
+        cur.execute("CREATE TABLE Cars(Id INT, Name TEXT, Year INT, Amenities TEXT, Location TEXT, ReservationPrice INT, TotalTrips INT, Revenues INT)")
         return cur
 
 model = setup_model('explorer.db')
-
-sess = dryscrape.Session()
-sess.set_attribute('auto_load_images', False)
 
 def convert_to_int(search):
     return int(re.search(r'\d+', search).group())
 
 def extract_from_page(page, name, element, elementClass, int_conversion = False):
     result = page.find(element, class_=elementClass)
-    if int_conversion:
-        c = convert_to_int(result.text)
-        print("{name}: {result}".format(name=name, result=c))
-        return c
-    else:
-        print("{name}: {result}".format(name=name, result=result.text))
-        return result.text
 
-def get_car_data(sess, url):
+    try:
+        if int_conversion:
+            c = convert_to_int(result.text)
+            print("{name}: {result}".format(name=name, result=c))
+            return c
+        else:
+            print("{name}: {result}".format(name=name, result=result.text))
+            return result.text
+    except:
+        res = "No {name} found".format(name=name)
+        print(res)
+        return 0 if int_conversion else res
+
+def get_car_data(row_number, url):
+    sess = dryscrape.Session()
+    sess.set_attribute('auto_load_images', False)
     sess.visit(url)
-    page = bs.BeautifulSoup(sess.body(), 'lxml')
 
+    wait = 1
+    print("\nPause {wait}s - crawling {url}".format(wait=wait, url=url))
+    time.sleep(wait)
+    page = bs.BeautifulSoup(sess.body(), 'lxml')
+    
     # find car name
     name = extract_from_page(page, 'Make Model', 'p', 'vehicleLabel-makeModel')
+
+    # find year
+    year = extract_from_page(page, 'Year', 'div', 'vehicleLabel-year', int_conversion= True)
 
     # find car location
     location = extract_from_page(page, 'Location', 'div', 'vehicleMapDetailsItem-description')
 
     # find car amenities
-    amenities = [amenity.text for amenity in page.findAll('div', class_='labeledBadge-label')]
+    search = [amenity.text for amenity in page.findAll('div', class_='labeledBadge-label')]
+    amenities =  ", ".join(search)
     if len(amenities) > 0:
-        print("Amenities: {amenities}".format(amenities = ", ".join(amenities)))
+        print("Amenities: {amenities}".format(amenities = amenities))
     
     # find current reservation price
-    reservation_price = int(extract_from_page(page, 'Reservation Price', 'span', 'reservationBoxVehiclePrice-amount'))
+    reservation_price = extract_from_page(page, 'Reservation Price', 'span', 'reservationBoxVehiclePrice-amount', int_conversion = True)
 
     # find trips so far from platform
     total_trips = extract_from_page(page, 'Trips', 'div', 'starRating-ratingLabel', int_conversion = True)
@@ -79,23 +93,35 @@ def get_car_data(sess, url):
     revenues = total_trips * reservation_price
     print('Estimated Revenues: {revenues}'.format(revenues = '${:,.2f}'.format(revenues)))
 
-    return {'name': name, 'amenities': amenities, 'location': location, 'reservation_price': reservation_price, 'total_trips': total_trips, 'revenues': int(revenues)}
+    # human visit, not a crawler
+    more = sess.at_xpath('//*[contains(text(), "See more feedback")]')
+    if more:
+        more.click()
 
-car = get_car_data(sess, 'https://turo.com/rentals/suvs/nj/jersey-city/land-rover-range-rover-sport/84266')
+    # sess.render('{name}.png'.format(name=name))
+    # print('Screenshot written to {name}'.format(name=name))
 
-for k, value in car.iteritems():
-    print("{k} {value}".format(k=k, value=type(value)))
+    return (row_number, name, year, amenities, location, reservation_price, total_trips, int(revenues))
 
-request = "INSERT INTO Cars VALUES(1, '{name}', '{amenities}', '{location}', {reservation_price}, {total_trips}, {revenues})".format(name=car['name'], amenities=" ,".join(car['amenities']), location=car['location'], reservation_price=car['reservation_price'], total_trips=car['total_trips'], revenues=car['revenues'])
-model.execute(request)
+car_list = (
+    'https://turo.com/rentals/suvs/nj/jersey-city/land-rover-range-rover-sport/84266',
+    'https://turo.com/rentals/cars/nj/jersey-city/alfa-romeo-4c/121327',
+    'https://turo.com/rentals/suvs/nj/jersey-city/mazda-cx-9/84783',
+    'https://turo.com/rentals/cars/nj/jersey-city/honda-accord/178749',
+    'https://turo.com/rentals/cars/il/chicago/volkswagen-passat/152129',
+    'https://turo.com/rentals/cars/nj/paterson/hyundai-sonata/98689',
+    'https://turo.com/rentals/suvs/ma/boston/subaru-outback/49162',
+    'https://turo.com/rentals/cars/nj/hasbrouck-heights/bmw-3-series/172636',
+)
 
-# should be:
-# cars = (
-#     (1, 'Audi', 52642),
-#     (2, 'Mercedes', 57127),
-#     (3, 'Skoda', 9000)
-# )
-# model.executemany("INSERT INTO Cars VALUES(?, ?, ?)", cars)
+cars = ()
+for idx, url in enumerate(car_list):
+    cars = cars + (get_car_data(idx + 1, url), )
 
-# sess.render('{name}.png'.format(name=name))
-# print('Screenshot written to {name}'.format(name=name))
+query = model.executemany("INSERT INTO Cars VALUES(?, ?, ?, ?, ?, ?, ?, ?)", cars)
+
+# Check db
+model.execute("SELECT * FROM Cars")
+rows = model.fetchall()
+for row in rows:
+    print row
