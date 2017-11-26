@@ -17,4 +17,5 @@ DONE
 * OK save multiple to database
 
 TODOS
+* use async for parsing
 * get all cars from db, get new information with date
