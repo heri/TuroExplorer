@@ -34,7 +34,7 @@ def setup_model(db_name):
     with conn:
         cur = conn.cursor()
         cur.execute("DROP TABLE IF EXISTS Cars")
-        cur.execute("CREATE TABLE Cars(Id INT, Name TEXT, Year INT, Amenities TEXT, Location TEXT, ReservationPrice INT, TotalTrips INT, Revenues INT)")
+        cur.execute("CREATE TABLE Cars(Id INT, Url TEXT, Name TEXT, Year INT, Amenities TEXT, Location TEXT, ReservationPrice INT, TotalTrips INT, Revenues INT)")
         return cur
 
 model = setup_model('explorer.db')
@@ -55,7 +55,6 @@ def extract_from_page(page, name, element, elementClass, int_conversion = False)
             return result.text
     except:
         res = "No {name} found".format(name=name)
-        print(res)
         return 0 if int_conversion else res
 
 def get_car_data(row_number, url):
@@ -64,12 +63,17 @@ def get_car_data(row_number, url):
     sess.visit(url)
 
     wait = 1
-    print("\nPause {wait}s - crawling {url}".format(wait=wait, url=url))
+    # print("\nPause {wait}s - crawling {url}".format(wait=wait, url=url))
     time.sleep(wait)
     page = bs.BeautifulSoup(sess.body(), 'lxml')
     
     # find car name
     name = extract_from_page(page, 'Make Model', 'p', 'vehicleLabel-makeModel')
+
+    # parsing unsuccessful 
+    if name = "No Make Model found":
+        print("{name} for {wait} sec loading".format(name=name, wait=wait))
+        return
 
     # find year
     year = extract_from_page(page, 'Year', 'div', 'vehicleLabel-year', int_conversion= True)
@@ -101,7 +105,7 @@ def get_car_data(row_number, url):
     # sess.render('{name}.png'.format(name=name))
     # print('Screenshot written to {name}'.format(name=name))
 
-    return (row_number, name, year, amenities, location, reservation_price, total_trips, int(revenues))
+    return (row_number, name, year, amenities, location, reservation_price, total_trips, int(revenues), url)
 
 car_list = (
     'https://turo.com/rentals/suvs/nj/jersey-city/land-rover-range-rover-sport/84266',
@@ -116,9 +120,11 @@ car_list = (
 
 cars = ()
 for idx, url in enumerate(car_list):
-    cars = cars + (get_car_data(idx + 1, url), )
+    car_data = get_car_data(idx + 1, url)
+    if car_data:
+        cars = cars + (car_data, )
 
-query = model.executemany("INSERT INTO Cars VALUES(?, ?, ?, ?, ?, ?, ?, ?)", cars)
+query = model.executemany("INSERT INTO Cars VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)", cars)
 
 # Check db
 model.execute("SELECT * FROM Cars")
