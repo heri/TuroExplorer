@@ -57,9 +57,8 @@ def extract_from_page(page, name, element, elementClass, int_conversion = False)
         res = "No {name} found".format(name=name)
         return 0 if int_conversion else res
 
-def get_car_data(row_number, url):
-    sess = dryscrape.Session()
-    sess.set_attribute('auto_load_images', False)
+def get_car_data(sess, row_number, url):
+
     sess.visit(url)
 
     wait = 1
@@ -118,9 +117,12 @@ car_list = (
     'https://turo.com/rentals/cars/nj/hasbrouck-heights/bmw-3-series/172636',
 )
 
+sess = dryscrape.Session()
+sess.set_attribute('auto_load_images', False)
+
 cars = ()
 for idx, url in enumerate(car_list):
-    car_data = get_car_data(idx + 1, url)
+    car_data = get_car_data(sess, idx + 1, url)
     if car_data:
         cars = cars + (car_data, )
 
