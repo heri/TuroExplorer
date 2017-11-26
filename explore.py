@@ -1,6 +1,8 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
- 
+
+# Setup
+
 import dryscrape
 import sys
 import bs4 as bs
@@ -14,6 +16,8 @@ if 'linux' in sys.platform:
     # start xvfb in case no X is running. Make sure xvfb 
     # is installed, otherwise this won't work!
     dryscrape.start_xvfb()
+
+# Utilities
 
 def setup_model(db_name):
     def create_connection(db_file):
@@ -33,11 +37,8 @@ def setup_model(db_name):
 
     with conn:
         cur = conn.cursor()
-        cur.execute("DROP TABLE IF EXISTS Cars")
-        cur.execute("CREATE TABLE Cars(Id INT, Url TEXT, Name TEXT, Year INT, Amenities TEXT, Location TEXT, ReservationPrice INT, TotalTrips INT, Revenues INT)")
+        cur.execute("CREATE TABLE IF NOT EXISTS Cars(Id INT, Url TEXT, Name TEXT, TotalTrips INT, Year INT, Amenities TEXT, Location TEXT, ReservationPrice INT, Revenues INT)")
         return cur
-
-model = setup_model('explorer.db')
 
 def convert_to_int(search):
     return int(re.search(r'\d+', search).group())
@@ -57,7 +58,7 @@ def extract_from_page(page, name, element, elementClass, int_conversion = False)
         res = "No {name} found".format(name=name)
         return 0 if int_conversion else res
 
-def get_car_data(sess, row_number, url):
+def get_car_data(sess, row_number, url, trips):
 
     sess.visit(url)
 
@@ -65,12 +66,19 @@ def get_car_data(sess, row_number, url):
     # print("\nPause {wait}s - crawling {url}".format(wait=wait, url=url))
     time.sleep(wait)
     page = bs.BeautifulSoup(sess.body(), 'lxml')
+
+    # find trips so far from platform
+    total_trips = extract_from_page(page, 'Trips', 'div', 'starRating-ratingLabel', int_conversion = True)
+
+    # early exit if no change in total trips
+    if total_trips == trips:
+        return nil
     
     # find car name
     name = extract_from_page(page, 'Make Model', 'p', 'vehicleLabel-makeModel')
 
     # parsing unsuccessful 
-    if name = "No Make Model found":
+    if name == "No Make Model found":
         print("{name} for {wait} sec loading".format(name=name, wait=wait))
         return
 
@@ -89,9 +97,6 @@ def get_car_data(sess, row_number, url):
     # find current reservation price
     reservation_price = extract_from_page(page, 'Reservation Price', 'span', 'reservationBoxVehiclePrice-amount', int_conversion = True)
 
-    # find trips so far from platform
-    total_trips = extract_from_page(page, 'Trips', 'div', 'starRating-ratingLabel', int_conversion = True)
-
     # calculate total revenues
     revenues = total_trips * reservation_price
     print('Estimated Revenues: {revenues}'.format(revenues = '${:,.2f}'.format(revenues)))
@@ -104,7 +109,14 @@ def get_car_data(sess, row_number, url):
     # sess.render('{name}.png'.format(name=name))
     # print('Screenshot written to {name}'.format(name=name))
 
-    return (row_number, name, year, amenities, location, reservation_price, total_trips, int(revenues), url)
+    return (row_number, url, name, total_trips, year, amenities, location, reservation_price, int(revenues))
+
+# Main
+
+sess = dryscrape.Session()
+sess.set_attribute('auto_load_images', False)
+
+model = setup_model('explorer.db')
 
 car_list = (
     'https://turo.com/rentals/suvs/nj/jersey-city/land-rover-range-rover-sport/84266',
@@ -117,9 +129,6 @@ car_list = (
     'https://turo.com/rentals/cars/nj/hasbrouck-heights/bmw-3-series/172636',
 )
 
-sess = dryscrape.Session()
-sess.set_attribute('auto_load_images', False)
-
 cars = ()
 for idx, url in enumerate(car_list):
     car_data = get_car_data(sess, idx + 1, url)
@@ -128,8 +137,20 @@ for idx, url in enumerate(car_list):
 
 query = model.executemany("INSERT INTO Cars VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)", cars)
 
+model.execute("SELECT * FROM Cars")
+rows = model.fetchall()
+
 # Check db
 model.execute("SELECT * FROM Cars")
 rows = model.fetchall()
 for row in rows:
     print row
+
+for row in rows:
+    car_data = get_car_data(sess, row[0], row[1], row[2])
+    if car_data:
+        cars = cars + (car_data, )
+    else:
+        model.execute("UPDATE Cars TotalTrips='{total_trips}', ReservationPrice='{reservation_price}', Revenues='{revenues}' WHERE Id = '{Id}'".format(Id=row[0], total_trips=total_trips, reservation_price=reservation_price, revenues=revenues))
+
+

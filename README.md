@@ -17,5 +17,5 @@ DONE
 * OK save multiple to database
 
 TODOS
-* use async for parsing
 * get all cars from db, get new information with date
+* use async for parsing https://www.blog.pythonlibrary.org/2016/07/26/python-3-an-intro-to-asyncio/
