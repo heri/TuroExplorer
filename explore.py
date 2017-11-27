@@ -72,7 +72,7 @@ def get_car_data(sess, row_number, url, trips):
 
     # early exit if no change in total trips
     if total_trips == trips:
-        return nil
+        return
     
     # find car name
     name = extract_from_page(page, 'Make Model', 'p', 'vehicleLabel-makeModel')
@@ -111,46 +111,65 @@ def get_car_data(sess, row_number, url, trips):
 
     return (row_number, url, name, total_trips, year, amenities, location, reservation_price, int(revenues))
 
-# Main
+# Database functions
 
 sess = dryscrape.Session()
 sess.set_attribute('auto_load_images', False)
-
 model = setup_model('explorer.db')
 
-car_list = (
-    'https://turo.com/rentals/suvs/nj/jersey-city/land-rover-range-rover-sport/84266',
-    'https://turo.com/rentals/cars/nj/jersey-city/alfa-romeo-4c/121327',
-    'https://turo.com/rentals/suvs/nj/jersey-city/mazda-cx-9/84783',
-    'https://turo.com/rentals/cars/nj/jersey-city/honda-accord/178749',
-    'https://turo.com/rentals/cars/il/chicago/volkswagen-passat/152129',
-    'https://turo.com/rentals/cars/nj/paterson/hyundai-sonata/98689',
-    'https://turo.com/rentals/suvs/ma/boston/subaru-outback/49162',
-    'https://turo.com/rentals/cars/nj/hasbrouck-heights/bmw-3-series/172636',
-)
+def create_all(car_list):
 
-cars = ()
-for idx, url in enumerate(car_list):
-    car_data = get_car_data(sess, idx + 1, url)
+    # car_list = (
+    #     'https://turo.com/rentals/suvs/nj/jersey-city/land-rover-range-rover-sport/84266',
+    #     'https://turo.com/rentals/cars/nj/jersey-city/alfa-romeo-4c/121327',
+    #     'https://turo.com/rentals/suvs/nj/jersey-city/mazda-cx-9/84783',
+    #     'https://turo.com/rentals/cars/nj/jersey-city/honda-accord/178749',
+    #     'https://turo.com/rentals/cars/il/chicago/volkswagen-passat/152129',
+    #     'https://turo.com/rentals/cars/nj/paterson/hyundai-sonata/98689',
+    #     'https://turo.com/rentals/suvs/ma/boston/subaru-outback/49162',
+    #     'https://turo.com/rentals/cars/nj/hasbrouck-heights/bmw-3-series/172636',
+    # )
+
+    cars = ()
+    for idx, url in enumerate(car_list):
+        car_data = get_car_data(sess, idx + 1, url, 0)
+        if car_data:
+            cars = cars + (car_data, )
+
+    query = model.executemany("INSERT INTO Cars VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)", cars)
+
+
+def create_one(car_url):
+    current_total = model.execute("COUNT * FROM Cars") 
+    car_data = get_car_data(sess, current_total + 1, car_url, 0)
     if car_data:
-        cars = cars + (car_data, )
+        query = model.executemany("INSERT INTO Cars VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)", car_data)
 
-query = model.executemany("INSERT INTO Cars VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)", cars)
+def update_all:
 
-model.execute("SELECT * FROM Cars")
-rows = model.fetchall()
+    # Check db
+    model.execute("SELECT * FROM Cars")
+    rows = model.fetchall()
 
-# Check db
-model.execute("SELECT * FROM Cars")
-rows = model.fetchall()
-for row in rows:
+    # Starting Update
+    for row in rows:
+        print row
+        car_data = get_car_data(sess, row[0], row[1], row[2])
+        if car_data:
+            print("Updating {name}..".format(name=car_data[2]))
+            model.execute("UPDATE Cars TotalTrips='{total_trips}', ReservationPrice='{reservation_price}', Revenues='{revenues}' WHERE Id = '{Id}'".format(Id=row[0], total_trips=car_data[3], reservation_price=car_data[7], revenues=car_data[8]))
+
+def update_one(car_url):
+    
+    # Check db
+    model.execute("SELECT * FROM Cars WHERE Url={car_url}".format(car_url=car_url))
+    row = model.fetchone()
+
     print row
-
-for row in rows:
     car_data = get_car_data(sess, row[0], row[1], row[2])
     if car_data:
-        cars = cars + (car_data, )
-    else:
-        model.execute("UPDATE Cars TotalTrips='{total_trips}', ReservationPrice='{reservation_price}', Revenues='{revenues}' WHERE Id = '{Id}'".format(Id=row[0], total_trips=total_trips, reservation_price=reservation_price, revenues=revenues))
+        print("Updating {name}..".format(name=car_data[2]))
+        model.execute("UPDATE Cars TotalTrips='{total_trips}', ReservationPrice='{reservation_price}', Revenues='{revenues}' WHERE Id = '{Id}'".format(Id=row[0], total_trips=car_data[3], reservation_price=car_data[7], revenues=car_data[8]))
+
 
 
