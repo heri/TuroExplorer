@@ -11,6 +11,7 @@ import datetime
 import sqlite3 as lite
 from sqlite3 import Error
 import time
+import argparse
 
 if 'linux' in sys.platform:
     # start xvfb in case no X is running. Make sure xvfb 
@@ -117,18 +118,15 @@ sess = dryscrape.Session()
 sess.set_attribute('auto_load_images', False)
 model = setup_model('explorer.db')
 
-def create_all(car_list):
+def find_all():
+    model.execute("SELECT * FROM Cars")
+    return model.fetchall()
 
-    # car_list = (
-    #     'https://turo.com/rentals/suvs/nj/jersey-city/land-rover-range-rover-sport/84266',
-    #     'https://turo.com/rentals/cars/nj/jersey-city/alfa-romeo-4c/121327',
-    #     'https://turo.com/rentals/suvs/nj/jersey-city/mazda-cx-9/84783',
-    #     'https://turo.com/rentals/cars/nj/jersey-city/honda-accord/178749',
-    #     'https://turo.com/rentals/cars/il/chicago/volkswagen-passat/152129',
-    #     'https://turo.com/rentals/cars/nj/paterson/hyundai-sonata/98689',
-    #     'https://turo.com/rentals/suvs/ma/boston/subaru-outback/49162',
-    #     'https://turo.com/rentals/cars/nj/hasbrouck-heights/bmw-3-series/172636',
-    # )
+def find_one(car_url)
+    model.execute("SELECT * FROM Cars WHERE Url={car_url}".format(car_url=car_url))
+    return model.fetchone()
+
+def create_all(car_list):
 
     cars = ()
     for idx, url in enumerate(car_list):
@@ -140,16 +138,18 @@ def create_all(car_list):
 
 
 def create_one(car_url):
-    current_total = model.execute("COUNT * FROM Cars") 
-    car_data = get_car_data(sess, current_total + 1, car_url, 0)
-    if car_data:
-        query = model.executemany("INSERT INTO Cars VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)", car_data)
+    car = find_one(car_url)
 
-def update_all:
+    # create car if not found
+    if car is None:
+        current_total = model.execute("COUNT * FROM Cars") 
+        car_data = get_car_data(sess, current_total + 1, car_url, 0)
+        if car_data:
+            query = model.executemany("INSERT INTO Cars VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)", car_data)
 
-    # Check db
-    model.execute("SELECT * FROM Cars")
-    rows = model.fetchall()
+def update_all():
+
+    rows = find_all
 
     # Starting Update
     for row in rows:
@@ -161,15 +161,35 @@ def update_all:
 
 def update_one(car_url):
     
-    # Check db
-    model.execute("SELECT * FROM Cars WHERE Url={car_url}".format(car_url=car_url))
-    row = model.fetchone()
+    car = find_one(car_url)
 
-    print row
-    car_data = get_car_data(sess, row[0], row[1], row[2])
-    if car_data:
-        print("Updating {name}..".format(name=car_data[2]))
-        model.execute("UPDATE Cars TotalTrips='{total_trips}', ReservationPrice='{reservation_price}', Revenues='{revenues}' WHERE Id = '{Id}'".format(Id=row[0], total_trips=car_data[3], reservation_price=car_data[7], revenues=car_data[8]))
+    if car:
+        print row
+        car_data = get_car_data(sess, car[0], car[1], car[2])
+        if car_data:
+            print("Updating {name}..".format(name=car_data[2]))
+            model.execute("UPDATE Cars TotalTrips='{total_trips}', ReservationPrice='{reservation_price}', Revenues='{revenues}' WHERE Id = '{Id}'".format(Id=car[0], total_trips=car_data[3], reservation_price=car_data[7], revenues=car_data[8]))
 
+seed = (
+    'https://turo.com/rentals/suvs/nj/jersey-city/land-rover-range-rover-sport/84266',
+    'https://turo.com/rentals/cars/nj/jersey-city/alfa-romeo-4c/121327',
+    'https://turo.com/rentals/suvs/nj/jersey-city/mazda-cx-9/84783',
+    'https://turo.com/rentals/cars/nj/jersey-city/honda-accord/178749',
+    'https://turo.com/rentals/cars/il/chicago/volkswagen-passat/152129',
+    'https://turo.com/rentals/cars/nj/paterson/hyundai-sonata/98689',
+    'https://turo.com/rentals/suvs/ma/boston/subaru-outback/49162',
+    'https://turo.com/rentals/cars/nj/hasbrouck-heights/bmw-3-series/172636',
+)
 
+parser = argparse.ArgumentParser()
+parser.add_argument("-l", "--link", default="https://turo.com/rentals/suvs/nj/jersey-city/land-rover-range-rover-sport/84266")
+parser.add_argument("-s", "--seed", default=seed)
+parser.add_argument("-u", "--update", default="all")
+args = parser.parse_args()
 
+if args.link:
+    create_one(args.url)
+elif args.s:
+    create_all(args.s) 
+else:
+    update_all()
