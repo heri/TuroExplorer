@@ -118,10 +118,12 @@ sess = dryscrape.Session()
 sess.set_attribute('auto_load_images', False)
 model = setup_model('explorer.db')
 
+# Returns a list of cars
 def find_all():
     model.execute("SELECT * FROM Cars")
     return model.fetchall()
 
+# Returns None if not found, otherwise a car
 def find_one(car_url)
     model.execute("SELECT * FROM Cars WHERE Url={car_url}".format(car_url=car_url))
     return model.fetchone()
@@ -134,7 +136,9 @@ def create_all(car_list):
         if car_data:
             cars = cars + (car_data, )
 
-    query = model.executemany("INSERT INTO Cars VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)", cars)
+    model.executemany("INSERT INTO Cars VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)", cars)
+
+    return cars
 
 
 def create_one(car_url):
@@ -146,10 +150,13 @@ def create_one(car_url):
         car_data = get_car_data(sess, current_total + 1, car_url, 0)
         if car_data:
             query = model.executemany("INSERT INTO Cars VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)", car_data)
+        return car_date
+    else:
+        return car
 
 def update_all():
 
-    rows = find_all
+    rows = find_all()
 
     # Starting Update
     for row in rows:
@@ -158,6 +165,8 @@ def update_all():
         if car_data:
             print("Updating {name}..".format(name=car_data[2]))
             model.execute("UPDATE Cars TotalTrips='{total_trips}', ReservationPrice='{reservation_price}', Revenues='{revenues}' WHERE Id = '{Id}'".format(Id=row[0], total_trips=car_data[3], reservation_price=car_data[7], revenues=car_data[8]))
+    
+    return rows
 
 def update_one(car_url):
     
@@ -168,7 +177,18 @@ def update_one(car_url):
         car_data = get_car_data(sess, car[0], car[1], car[2])
         if car_data:
             print("Updating {name}..".format(name=car_data[2]))
-            model.execute("UPDATE Cars TotalTrips='{total_trips}', ReservationPrice='{reservation_price}', Revenues='{revenues}' WHERE Id = '{Id}'".format(Id=car[0], total_trips=car_data[3], reservation_price=car_data[7], revenues=car_data[8]))
+            return model.execute("UPDATE Cars TotalTrips='{total_trips}', ReservationPrice='{reservation_price}', Revenues='{revenues}' WHERE Id = '{Id}'".format(Id=car[0], total_trips=car_data[3], reservation_price=car_data[7], revenues=car_data[8]))
+    
+    return None
+
+def delete(car_url):
+
+    return model.execute("DELETE FROM Cars WHERE Url='{car_url}'".format(car_url=car_url)) 
+
+def delete_all(car_list)
+
+    for url in car_list:
+        model.execute("DELETE FROM Cars WHERE Url='{car_url}'".format(car_url=url))
 
 seed = (
     'https://turo.com/rentals/suvs/nj/jersey-city/land-rover-range-rover-sport/84266',
