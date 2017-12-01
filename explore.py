@@ -140,7 +140,7 @@ def create_all(car_list):
 
     return cars
 
-
+# Returns a new car
 def create_one(car_url):
     car = find_one(car_url)
 
@@ -149,27 +149,28 @@ def create_one(car_url):
         current_total = model.execute("COUNT * FROM Cars") 
         car_data = get_car_data(sess, current_total + 1, car_url, 0)
         if car_data:
-            query = model.executemany("INSERT INTO Cars VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)", car_data)
-        return car_date
+            query = model.execute("INSERT INTO Cars VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)", car_data)
+        return car_data
     else:
         return car
 
+# Updates all cars in db with fresh information
 def update_all():
-
     rows = find_all()
 
-    # Starting Update
+    cars = ()
     for row in rows:
         print row
         car_data = get_car_data(sess, row[0], row[1], row[2])
         if car_data:
-            print("Updating {name}..".format(name=car_data[2]))
-            model.execute("UPDATE Cars TotalTrips='{total_trips}', ReservationPrice='{reservation_price}', Revenues='{revenues}' WHERE Id = '{Id}'".format(Id=row[0], total_trips=car_data[3], reservation_price=car_data[7], revenues=car_data[8]))
+            cars = cars + ({total_trips=car_data[3], reservation_price=car_data[7], revenues=car_data[8], Id=row[0]}, )
+            #model.execute("UPDATE Cars SET TotalTrips='{total_trips}', ReservationPrice='{reservation_price}', Revenues='{revenues}' WHERE Id = '{Id}'".format(Id=row[0], total_trips=car_data[3], reservation_price=car_data[7], revenues=car_data[8]))
     
+    model.executemany("UPDATES Cars SET TotalTrips=:total_trips, ReservationPrice=:reservation_price, Revenues:=revenues WHERE Id=:Id" , cars)
     return rows
 
+# Updates on car
 def update_one(car_url):
-    
     car = find_one(car_url)
 
     if car:
@@ -182,11 +183,9 @@ def update_one(car_url):
     return None
 
 def delete(car_url):
-
     return model.execute("DELETE FROM Cars WHERE Url='{car_url}'".format(car_url=car_url)) 
 
 def delete_all(car_list)
-
     for url in car_list:
         model.execute("DELETE FROM Cars WHERE Url='{car_url}'".format(car_url=url))
 
