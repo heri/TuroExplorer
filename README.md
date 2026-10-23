@@ -20,3 +20,7 @@ DONE
 TODOS
 * sys.argv adds one car with car_url option
 * use async for parsing https://www.blog.pythonlibrary.org/2016/07/26/python-3-an-intro-to-asyncio/
+
+## Who is behind this
+
+Heri is a software engineer, photographer, father and Montréaler. Building in the open — see more projects at [studiozenkai.com](https://studiozenkai.com).
